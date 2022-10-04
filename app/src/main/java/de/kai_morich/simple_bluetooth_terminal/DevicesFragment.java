@@ -101,6 +101,7 @@ public class DevicesFragment extends ListFragment {
         }
         Collections.sort(listItems, DevicesFragment::compareTo);
         listAdapter.notifyDataSetChanged();
+        onListItemClick(getListView(), getView(), 1, 0);
     }
 
     @Override

@@ -4,17 +4,22 @@ import android.app.Activity;
 import android.app.AlertDialog;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
+import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
 import android.os.Bundle;
+import android.os.Handler;
 import android.os.IBinder;
+import android.os.Parcel;
+import android.os.Parcelable;
 import android.text.Editable;
 import android.text.Spannable;
 import android.text.SpannableStringBuilder;
 import android.text.method.ScrollingMovementMethod;
 import android.text.style.ForegroundColorSpan;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuInflater;
@@ -28,8 +33,21 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 
+import com.eveningoutpost.dexdrip.services.broadcastservice.models.Settings;
+
+import java.io.Serializable;
+import java.util.Timer;
+import java.util.TimerTask;
+
+import lombok.Getter;
+import lombok.Setter;
+
 public class TerminalFragment extends Fragment implements ServiceConnection, SerialListener {
 
+    @Setter
+    protected Double bgVal;
+    @Setter
+    protected Double bgVar;
     private enum Connected { False, Pending, True }
 
     private String deviceAddress;
@@ -43,8 +61,13 @@ public class TerminalFragment extends Fragment implements ServiceConnection, Ser
     private boolean initialStart = true;
     private boolean hexEnabled = false;
     private boolean pendingNewline = false;
-    private String newline = TextUtil.newline_crlf;
+    private String newline = TextUtil.newline_lf;
 
+    private Timer timer;
+    private Handler handler = new Handler();
+    protected static final String ACTION_WATCH_COMMUNICATION_RECEIVER = "com.eveningoutpost.dexdrip.watch.wearintegration.BROADCAST_SERVICE_RECEIVER";
+    protected static final String ACTION_WATCH_COMMUNICATION_SENDER = "com.eveningoutpost.dexdrip.watch.wearintegration.BROADCAST_SERVICE_SENDER";
+    protected String TAG = this.getClass().getSimpleName();
     /*
      * Lifecycle
      */
@@ -54,6 +77,44 @@ public class TerminalFragment extends Fragment implements ServiceConnection, Ser
         setHasOptionsMenu(true);
         setRetainInstance(true);
         deviceAddress = getArguments().getString("device");
+        deviceAddress = "00:1A:7D:DA:71:13";
+        timer = new Timer();
+        timer.schedule(new TimerTask() {
+            @Override
+            public void run() {
+                handler.post(new Runnable() {
+                    public void run() {
+                        onStart();
+                        send("135;Flat");
+                        Log.d("BgGw", "Sent bg!");
+                        Intent intent=new Intent();
+                        intent.setAction(ACTION_WATCH_COMMUNICATION_RECEIVER);
+                        intent.putExtra("PACKAGE","de.kai_morich.simple_bluetooth_terminal");
+                        intent.putExtra("FUNCTION","update_bg");
+                        //TODO call sendBroadcast
+                        this.sendBroadcast(intent);
+                    }
+                });
+            }
+        }, 5000, 240000);
+        Intent intent=new Intent();
+        intent.setAction(ACTION_WATCH_COMMUNICATION_RECEIVER);
+        intent.putExtra("PACKAGE","de.kai_morich.simple_bluetooth_terminal");
+        //intent.putExtra("FUNCTION","set_settings");
+        intent.putExtra("FUNCTION","update_bg_force");
+        Settings settings = new Settings();
+//        intent.putExtra("SETTINGS",settings);
+        Bundle bundle = new Bundle();
+        bundle.putString("apkName", "de.kai_morich.simple_bluetooth_terminal");
+        bundle.putLong("graphStart",1);
+        bundle.putLong("graphEnd",10);
+        bundle.putInt("displayGraph",0);
+      //Bundle mapBundle = new Bundle();
+        bundle.putParcelable("SETTINGS", settings );
+        //bundle.setClassLoader(this.getClass().getClassLoader());
+        //intent.putExtra("SETTINGS", bundle);
+        intent.putExtra("SETTINGS", settings);
+        this.getActivity().sendBroadcast(intent);
     }
 
     @Override

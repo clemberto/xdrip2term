@@ -23,6 +23,11 @@
             </intent-filter>
         </activity>
         <service android:name=".SerialService" />
+        <receiver android:name=".xDripReceiver"  android:enabled="true">
+            <intent-filter>
+                <action android:name="com.eveningoutpost.dexdrip.watch.wearintegration.BROADCAST_SERVICE_SENDER" />
+            </intent-filter>
+        </receiver>
     </application>
 
 </manifest>
